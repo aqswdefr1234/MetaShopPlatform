@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using System.Threading.Tasks;
 using GLTFast;
 
 public class DataController : MonoBehaviour
@@ -17,7 +15,7 @@ public class DataController : MonoBehaviour
     [SerializeField] private Transform foundationPrefab;
     [SerializeField] private Transform pointPrefab;
     [SerializeField] private Transform spotPrefab;
-    [SerializeField] private GameObject waitPanel;
+
     Transform gltfGround, lightGround;
 
     void Awake()
