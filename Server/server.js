@@ -1,4 +1,4 @@
-const domain = "www.ksjdatadomain.p-e.kr";
+const domain = "www.abcdefg.com";
 const express = require('express');
 const https = require('https');
 const fs = require('fs');
