@@ -15,18 +15,7 @@ const ssl_options = {
   cert: fs.readFileSync(`/etc/letsencrypt/live/${domain}/cert.pem`)
 };
 const app = express();
-/*
-const whitelist = ['http://localhost:64830']; // assuming front-end application is running on localhost port 3000
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (whitelist.indexOf(origin) !== -1) {
-      callback(null, true)
-    } else {
-      callback(new Error('Not allowed by CORS'))
-    }
-  }
-}
-*/
+//WebGL에서 접근 하기 위해서서
 const corsOptions = {
   origin: function (origin, callback) {
     // 모든 origin 허용
@@ -196,14 +185,3 @@ https.createServer(ssl_options, app).listen(PORT, () => {
         console.log('Room 폴더가 생성되었습니다.');
     }
 });
-
-
-
-/*
-app.get('/Room/:filename', (req, res, next) => {
-  const filename = req.params.filename;
-  const filePath = path.join("./", 'Room', filename);
-  res.download(filePath, filename, (err) => {
-    if (err) res.status(404).send('File not found.');
-  });
-});*/
