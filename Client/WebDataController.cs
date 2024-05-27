@@ -1,55 +1,49 @@
-using System.Collections;
-using System.Collections.Generic;
-using Debug = UnityEngine.Debug;
-using System.IO.Compression;
-using System.IO;
-using UnityEngine;
-using GLTFast;
-using System.Threading.Tasks;
 using System;
+using System.IO;
 using System.Text;
-using System.Runtime.Serialization.Formatters.Binary;
+using System.Collections;
+using System.IO.Compression;
+using System.Collections.Generic;
+
+using GLTFast;
+using UnityEngine;
 using UnityEngine.Networking;
 using LightmapAnalysis;
-using System.Net;
-using System.Runtime.InteropServices;
-using UnityEngine.XR;
 
 public class WebDataController : MonoBehaviour
 {
-    List<byte[]> bytesList = new List<byte[]>();
+#if UNITY_ANDROID
+    string defaultPath = Path.Combine(Application.persistentDataPath, "MetaShopData");
+#else
+    string defaultPath = Path.Combine(UnityEngine.Application.dataPath, "../", "MetaShopData");
+#endif
     [SerializeField] private Transform foundationPrefab;
     [SerializeField] private Transform pointPrefab;
     [SerializeField] private Transform spotPrefab;
-    [SerializeField] private GameObject watingPanel;
-    Transform loadedObjects, gltfGround, lightGround;
+
+    List<byte[]> bytesList = new List<byte[]>();
+    Transform gltfGround, lightGround;
     MeshMerger merger = new MeshMerger();
 
     void Start()
     {
         CreateFolder();
-        loadedObjects = FindTransform.FindSceneRoot("LoadedObjects");
-        gltfGround = FindTransform.FindChild(loadedObjects, "GLTFs");
-        lightGround = FindTransform.FindChild(loadedObjects, "Lights");
-        Debug.Log(RoomFileDownload.roomFileName);
+        gltfGround = LoadedPlace.gltfsPlace;
+        lightGround = LoadedPlace.lightsPlace;
+
         StartCoroutine(RequestFile(RoomFileDownload.roomFileName));//roomFileName에는 파일크기까지 같이 들어있음*/
     }
     void CreateFolder()
     {
-        string createPath = Path.Combine(DataController.defaultPath, "LightData", "RoomData");
-        DirectoryFileController.IsExistFolder(createPath);
-
-        createPath = Path.Combine(DataController.defaultPath, "BackUp");
-        DirectoryFileController.IsExistFolder(createPath);
-
-        createPath = Path.Combine(DataController.defaultPath, "TransformData");
-        DirectoryFileController.IsExistFolder(createPath);
-
-        createPath = Path.Combine(DataController.defaultPath, "TemporaryFolder");
-        DirectoryFileController.IsExistFolder(createPath);
-
-        createPath = Path.Combine(DataController.defaultPath, "CloudFolder");
-        DirectoryFileController.IsExistFolder(createPath);
+        string[] createFolders = new string[5]
+        {
+            "LightData/RoomData", "BackUp", "TransformData", "TemporaryFolder", "CloudFolder"
+        };
+        foreach (string path in createFolders)
+        {
+            string createPath = Path.Combine(defaultPath, path);
+            DirectoryFileController.IsExistFolder(createPath);
+        }
     }
     public void LoadCompressData(string filePath)
     {
@@ -67,7 +61,7 @@ public class WebDataController : MonoBehaviour
         bytesList.Clear();
         if (!File.Exists(filePath))
         {
-            Debug.LogWarning("File does not exist: " + filePath);
+            Notification.notiList.Add("File does not exist: " + filePath);
             return;
         }
 
@@ -77,30 +71,30 @@ public class WebDataController : MonoBehaviour
             {
                 while (true)
                 {
-                    // 바이트 배열의 길이를 읽습니다.
+                    // 바이트 배열의 길이를 읽기
                     byte[] lengthBuffer = new byte[sizeof(int)];
                     int bytesRead = decompressionStream.Read(lengthBuffer, 0, sizeof(int));
                     if (bytesRead == 0)
-                        break; // 파일의 끝에 도달하면 종료합니다.
+                        break; // 파일의 끝에 도달하면 종료
                     if (bytesRead != sizeof(int))
                     {
-                        Debug.LogError("Failed to read the length of the byte array.");
+                        Notification.notiList.Add("Failed to read the length of the byte array.");
                         return;
                     }
 
-                    // 바이트 배열의 길이를 가져옵니다.
+                    // 바이트 배열의 길이를 가져오기
                     int length = BitConverter.ToInt32(lengthBuffer, 0);
 
-                    // 실제 바이트 배열을 읽습니다.
+                    // 실제 바이트 배열을 읽기
                     byte[] byteArray = new byte[length];
                     bytesRead = decompressionStream.Read(byteArray, 0, length);
                     if (bytesRead != length)
                     {
-                        Debug.LogError("Failed to read the byte array.");
+                        Notification.notiList.Add("Failed to read the byte array.");
                         return;
                     }
 
-                    // 바이트 배열을 리스트에 추가합니다.
+                    // 바이트 배열을 리스트에 추가
                     bytesList.Add(byteArray);
                 }
             }
@@ -110,7 +104,7 @@ public class WebDataController : MonoBehaviour
     public void LoadFile()
     {
         List<Transform> gltfTransform = new List<Transform>();
-        int startIndex = 3;////0: objectTrans, 1:lightTrans, 2: bakedData, 3 ~ : gltfData
+        int startIndex = 3;//0: objectTrans, 1:lightTrans, 2: bakedData, 3 ~ : gltfData
         CreateObject(bytesList[0], gltfTransform);
         CreateRealLight(bytesList[1]);
         ImportBakedLightMap(bytesList[2]);
@@ -176,7 +170,7 @@ public class WebDataController : MonoBehaviour
         var gltf = new GltfImport();
         bool success = await gltf.LoadGltfBinary(data, null);
         if (success) await gltf.InstantiateMainSceneAsync(target);
-        else Debug.LogError("glTF 로드 실패!");
+        else Notification.notiList.Add("glTF 로드 실패!");
         merger.MergeMesh(target);
         WaitingPanel.Instance.CompleteTask();
     }
@@ -187,7 +181,6 @@ public class WebDataController : MonoBehaviour
         WaitingPanel.Instance.PanelStart(2, new string[] { "Loading Web file", "DeCompressing" });
         string[] fileNameSize = fileData.Split(" : ");
         string fileName = fileNameSize[0];
-        int fileMB = Convert.ToInt32(fileNameSize[1]);
         string url = Path.Combine("https://www.ksjdatadomain.p-e.kr/Room", fileName);
 
 
@@ -251,7 +244,7 @@ public class WebDataController : MonoBehaviour
             }
 
         }
-        catch (Exception ex) { Debug.LogException(ex); }
+        catch (Exception ex) { Notification.notiList.Add(ex.ToString()); }
     }
 #else
     IEnumerator RequestFile(string fileData)
@@ -281,7 +274,7 @@ public class WebDataController : MonoBehaviour
         yield return www.SendWebRequest();
         if (www.result != UnityWebRequest.Result.Success)
         {
-            Debug.LogError("Error downloading: " + www.error);
+            Notification.notiList.Add("Error downloading: " + www.error.ToString());
             yield break;
         }
         WaitingPanel.Instance.CompleteTask();
