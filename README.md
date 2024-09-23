@@ -1,4 +1,5 @@
 # MetaShopPlatform
+※현재 서버 닫혀있음
 # Youtube
 https://youtu.be/ccPWTVOgUVM
 # WebGL
